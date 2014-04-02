@@ -27,21 +27,22 @@ bool select_signal = false;
 bool move_signal = false;
 CvPoint moveDist;
 int selectedID = -1;
-CvRect box;
+FloatRect box;
 Mat frame, latest; /* frame is original image, latest is the one allowing user to adjust */
-vector<CvRect> boxes; /* store the temporary positions */
+vector<FloatRect> boxes; /* store the temporary positions */
 int staticID = 0;
 
 void draw_all();
 void temp_draw_all();
-void draw_box(CvRect bbox);
+void draw_box(FloatRect bbox);
 void clear_trackers();
 void my_mouse_callback(int event, int x, int y, int flags, void * param);
 int my_rand_int(int scale);
 void clear_all_signals();
-void init_tracker(CvRect bbox);
+void init_tracker(FloatRect bbox);
 void delete_tracker(int i);
 void write_output(ofstream & ofile, int timestep);
+void rectangle(Mat& rMat, const FloatRect& rRect, const Scalar& rColour);
 
 /************************************************************************/
 /* 
@@ -88,7 +89,7 @@ void demo()
 	cv::namedWindow(windowName, cv::WINDOW_AUTOSIZE);
 	Mat result;
 	cvSetMouseCallback(windowName.c_str(), my_mouse_callback);
-	vector<CvRect> bak;
+	vector<FloatRect> bak;
 	for (int i = startFrame; i < endFrame; )
 	{
 		cout << "Frame: " << i << endl;
@@ -127,12 +128,7 @@ void demo()
 				trackers[j].trk->Track(frame);
 				FloatRect r = trackers[j].trk->GetBB();
 				trackers[j].boxSeq.push_back(r);
-				CvRect bb;
-				bb.x = r.XMin();
-				bb.y = r.YMin();
-				bb.width = r.Width();
-				bb.height = r.Height();
-				boxes.push_back(bb);
+				boxes.push_back(r);
 			}
 		}
 
@@ -168,7 +164,7 @@ void demo()
 			for (int j = 0; j < bak.size(); )
 			{
 				/* deleted */
-				if (boxes[j].x + boxes[j].y + boxes[j].width + boxes[j].height == 0)
+				if (boxes[j].XMin() + boxes[j].YMin() + boxes[j].Width() + boxes[j].Height() == 0)
 				{
 					delete_tracker(j);
 					trackers.erase(trackers.begin() + j);
@@ -178,10 +174,10 @@ void demo()
 				}
 
 				/* position changed */
-				if (boxes[j].x != bak[j].x || boxes[j].y != bak[j].y)
+				if (boxes[j].XMin() != bak[j].XMin() || boxes[j].YMin() != bak[j].YMin())
 				{
 					trackers[j].trk->Reset();
-					FloatRect initBB(boxes[j].x, boxes[j].y, boxes[j].width, boxes[j].height);
+					FloatRect initBB(boxes[j].XMin(), boxes[j].YMin(), boxes[j].Width(), boxes[j].Height());
 					trackers[j].trk->Initialise(frame, initBB);
 					trackers[j].boxSeq[trackers[j].boxSeq.size()-1] = initBB;
 				}
@@ -230,10 +226,10 @@ int main()
 */
 /************************************************************************/
 
-void init_tracker(CvRect bbox)
+void init_tracker(FloatRect bbox)
 {
 	Tracker * trkPtr = new Tracker(globalConf);	
-	FloatRect initBB(bbox.x, bbox.y, bbox.width, bbox.height);
+	FloatRect initBB(bbox.XMin(), bbox.YMin(), bbox.Width(), bbox.Height());
 	trkPtr->Initialise(frame, initBB);
 	TR wrapper;
 	wrapper.id = staticID ++;
@@ -268,7 +264,10 @@ void draw_all()
 	for (int i = 0; i < trackers.size(); i ++)
 	{
 		IntRect bbox(trackers[i].boxSeq.back());
-		rectangle(latest, Point(bbox.XMin(), bbox.YMin()), Point(bbox.XMax(), bbox.YMax()), CV_RGB(0, 255, 0));
+		rectangle(latest, 
+				Point(bbox.XMin(), bbox.YMin()), 
+				Point(bbox.XMax(), bbox.YMax()), 
+				CV_RGB(0, 255, 0));
 	}
 	imshow(windowName, latest);
 }
@@ -279,41 +278,64 @@ void temp_draw_all()
 	latest = frame.clone();
 	for (int i = 0; i < boxes.size(); i ++)
 	{	
-		if (boxes[i].x + boxes[i].y + boxes[i].width + boxes[i].height > 0)
-			rectangle(latest, boxes[i], CV_RGB(0, 255, 0));
+		if (boxes[i].XMin() + boxes[i].YMin() + boxes[i].Width() + boxes[i].Height() > 0)
+			rectangle(latest, 
+					Point(boxes[i].XMin(), boxes[i].YMin()), 
+					Point(boxes[i].XMax(), boxes[i].YMax()), 
+					CV_RGB(0, 255, 0));
 	}
 
 	cv::imshow(windowName, latest);
 }
 
 /* use for drawing rectangles during editing, highlight the selected one */
-void draw_box(CvRect bbox)
+void draw_box(FloatRect bbox)
 {
 	latest = frame.clone();
 
-	if( bbox.width < 0 )
+	if( bbox.Width() < 0 )
 	{
-		bbox.x += bbox.width;
-		bbox.width *= -1;
+		bbox.SetXMin(bbox.XMin() + bbox.Width());
+		bbox.SetWidth(bbox.Width() * -1);
+		//bbox.x += bbox.width;
+		//bbox.width *= -1;
 	}
 
-	if( bbox.height < 0 )
+	if( bbox.Height() < 0 )
 	{
-		bbox.y += bbox.height;
-		bbox.height *= -1;
+		bbox.SetYMin(bbox.YMin() + bbox.Height());
+		bbox.SetHeight(bbox.Height() * -1);
+		//bbox.y += bbox.height;
+		//bbox.height *= -1;
 	}
+
 	if (selectedID != -1)
-		rectangle(latest, bbox, CV_RGB(0, 0, 255));
+		rectangle(latest, 
+			Point(bbox.XMin(), bbox.YMin()), 
+			Point(bbox.XMax(), bbox.YMax()), 
+			CV_RGB(0, 0, 255));
 	else
-		rectangle(latest, bbox, CV_RGB(0, 255, 0));
+		rectangle(latest, 
+			Point(bbox.XMin(), bbox.YMin()), 
+			Point(bbox.XMax(), bbox.YMax()), 
+			CV_RGB(0, 255, 0));
 
 	for (int i = 0; i < boxes.size(); i ++)
 	{
 		if (i != selectedID)
-			rectangle(latest, boxes.at(i), CV_RGB(0, 255, 0));
+			rectangle(latest, 
+				Point(boxes[i].XMin(), boxes[i].YMin()), 
+				Point(boxes[i].XMax(), boxes[i].YMax()), 
+				CV_RGB(0, 255, 0));
 	}
 
 	cv::imshow(windowName, latest);
+}
+
+void rectangle(Mat& rMat, const FloatRect& rRect, const Scalar& rColour)
+{
+	IntRect r(rRect);
+	rectangle(rMat, Point(r.XMin(), r.YMin()), Point(r.XMax(), r.YMax()), rColour);
 }
 
 
@@ -331,16 +353,16 @@ void my_mouse_callback(int event, int x, int y, int flags, void * param)
 	case CV_EVENT_MOUSEMOVE: 
 		if ( draw_signal )
 		{
-			box.width = x - box.x;
-			box.height = y - box.y;
+			box.SetWidth(x - box.XMin());
+			box.SetHeight(y - box.YMin());
 			draw_box(box);
 		}
 		if (move_signal)
 		{
 			//cout << "2. selected: " << selectedID << endl;
 			/*move the box*/
-			box.x = x - moveDist.x;
-			box.y = y - moveDist.y;
+			box.SetXMin(x - moveDist.x);
+			box.SetYMin(y - moveDist.y);
 			draw_box(box);
 		}
 		break;
@@ -348,24 +370,27 @@ void my_mouse_callback(int event, int x, int y, int flags, void * param)
 	case CV_EVENT_RBUTTONDOWN:
 		clear_all_signals();
 		draw_signal = true;
-		box = cvRect(x, y, 0, 0);
+		box.SetXMin(x);
+		box.SetYMin(y);
+		box.SetWidth(0);
+		box.SetHeight(0);
 		break;
 
 	case CV_EVENT_RBUTTONUP:
 		draw_signal = false;
-		if (abs(box.height) > 3 && abs(box.width) > 3)
+		if (abs(box.Height()) > 3 && abs(box.Width()) > 3)
 		{
 			/* add a new tracker */
-			if( box.width < 0 )
+			if( box.Width() < 0 )
 			{
-				box.x += box.width;
-				box.width *= -1;
+				box.SetXMin(box.XMin() + box.Width());
+				box.SetWidth(box.Width() * -1);
 			}
 
-			if( box.height < 0 )
+			if( box.Height() < 0 )
 			{
-				box.y += box.height;
-				box.height *= -1;
+				box.SetYMin(box.YMin() + box.Height());
+				box.SetHeight(box.Height() * -1);
 			}
 			boxes.push_back(box);
 		}
@@ -379,8 +404,8 @@ void my_mouse_callback(int event, int x, int y, int flags, void * param)
 		/*select a specific box*/
 		for (int i = 0; i < boxes.size(); i ++)
 		{
-			CvRect r = boxes.at(i);
-			if (x >= r.x && y >= r.y && x <= r.x+r.width && y <= r.y+r.height)
+			FloatRect r = boxes[i];
+			if (x >= r.XMin() && y >= r.YMin() && x <= r.XMax() && y <= r.YMax())
 			{
 				overlapSelect.push_back(i);
 			}
@@ -401,7 +426,7 @@ void my_mouse_callback(int event, int x, int y, int flags, void * param)
 			move_signal = true;
 
 			/*compute relative distance away from box.x and box.y*/
-			moveDist = cvPoint(x - box.x, y - box.y);
+			moveDist = cvPoint(x - box.XMin(), y - box.YMin());
 
 			draw_box(boxes[selectedID]);
 		}
@@ -434,10 +459,10 @@ void my_mouse_callback(int event, int x, int y, int flags, void * param)
 			cout << "delete!" << endl;
 			//trackers.erase(trackers.begin() + selectedID);
 			//cout << trackers.size() << endl;
-			boxes[selectedID].x = 0;
-			boxes[selectedID].y = 0;
-			boxes[selectedID].width = 0;
-			boxes[selectedID].height = 0;
+			boxes[selectedID].SetXMin(0);
+			boxes[selectedID].SetYMin(0);
+			boxes[selectedID].SetWidth(0);
+			boxes[selectedID].SetHeight(0);
 			clear_all_signals();
 		}
 		temp_draw_all();
