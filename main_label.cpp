@@ -31,6 +31,7 @@ FloatRect box;
 Mat frame, latest; /* frame is original image, latest is the one allowing user to adjust */
 vector<FloatRect> boxes; /* store the temporary positions */
 int staticID = 0;
+float scale = 3.0;
 
 void draw_all();
 void temp_draw_all();
@@ -57,14 +58,14 @@ void demo()
 	//string framesFilePath = imgPathBase + "girl_frames.txt";
 	//string outputFilePath = imgPathBase + "girl_tracks.txt";
 	//string imgFormat = imgPathBase + "imgs/img%05d.png";
-	/*string imgPathBase = "./sequences/crossroad/";
+	string imgPathBase = "./sequences/crossroad/";
 	string framesFilePath = imgPathBase + "crossroad_frames.txt";
 	string outputFilePath = imgPathBase + "crossroad_tracks.txt";
-	string imgFormat = imgPathBase + "imgs/%06d.jpg";*/
-	string imgPathBase = "./sequences/passing/";
+	string imgFormat = imgPathBase + "imgs/%06d.jpg";
+	/*string imgPathBase = "./sequences/passing/";
 	string framesFilePath = imgPathBase + "passing_frames.txt";
 	string outputFilePath = imgPathBase + "passing_tracks.txt";
-	string imgFormat = imgPathBase + "imgs/%06d.jpg";
+	string imgFormat = imgPathBase + "imgs/%06d.jpg";*/
 
 	/* Input */
 	ifstream framesFile;
@@ -90,6 +91,7 @@ void demo()
 	Mat result;
 	cvSetMouseCallback(windowName.c_str(), my_mouse_callback);
 	vector<FloatRect> bak;
+
 	for (int i = startFrame; i < endFrame; )
 	{
 		cout << "Frame: " << i << endl;
@@ -99,7 +101,8 @@ void demo()
 		//Mat frameOrig = cv::imread(frmPath, 0);
 		//cvtColor(frameOrig, result, CV_GRAY2RGB);
 		Mat frameOrig = cv::imread(frmPath, 1);
-		frame = frameOrig.clone();
+		//frame = frameOrig.clone();
+		resize(frameOrig, frame, Size(frameOrig.cols * scale, frameOrig.rows * scale));
 
 		cout << frmPath << endl;
 		imshow(windowName, frame);
@@ -204,10 +207,10 @@ void write_output(ofstream & ofile, int timestep)
 		FloatRect fr = trackers[i].boxSeq.back();
 		oss << timestep << "\t"
 			<< trackers[i].id << "\t"
-			<< fr.XMin() << "\t"
-			<< fr.YMin() << "\t"
-			<< fr.Width() << "\t"
-			<< fr.Height() << "\n";
+			<< fr.XMin()/scale << "\t"
+			<< fr.YMin()/scale << "\t"
+			<< fr.Width()/scale << "\t"
+			<< fr.Height()/scale << "\n";
 	}
 	ofile << oss.str();
 	ofile.flush();
