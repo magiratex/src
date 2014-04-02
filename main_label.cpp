@@ -19,6 +19,7 @@ typedef struct _TR
 	int id;
 	Tracker * trk;
 	vector<FloatRect> boxSeq;
+	Scalar color;
 }TR;
 
 vector<TR> trackers;
@@ -28,22 +29,25 @@ bool move_signal = false;
 CvPoint moveDist;
 int selectedID = -1;
 FloatRect box;
+Scalar theColor;
 Mat frame, latest; /* frame is original image, latest is the one allowing user to adjust */
 vector<FloatRect> boxes; /* store the temporary positions */
+vector<Scalar> colors; 
 int staticID = 0;
-float scale = 3.0;
+float scale = 2.0;
 
 void draw_all();
 void temp_draw_all();
-void draw_box(FloatRect bbox);
+void draw_box(FloatRect bbox, Scalar c);
 void clear_trackers();
 void my_mouse_callback(int event, int x, int y, int flags, void * param);
 int my_rand_int(int scale);
 void clear_all_signals();
-void init_tracker(FloatRect bbox);
+void init_tracker(FloatRect bbox, Scalar ccol);
 void delete_tracker(int i);
 void write_output(ofstream & ofile, int timestep);
-void rectangle(Mat& rMat, const FloatRect& rRect, const Scalar& rColour);
+void rectangle(Mat& rMat, const FloatRect& rRect, const Scalar& rColour, int thickness);
+void draw_traj();
 
 /************************************************************************/
 /* 
@@ -91,6 +95,7 @@ void demo()
 	Mat result;
 	cvSetMouseCallback(windowName.c_str(), my_mouse_callback);
 	vector<FloatRect> bak;
+	vector<Scalar> bakColors;
 
 	for (int i = startFrame; i < endFrame; )
 	{
@@ -124,6 +129,7 @@ void demo()
 
 		/* Loop over all trackers */
 		boxes.clear();
+		colors.clear();
 		for (int j = 0; j < trackers.size(); j ++)
 		{
 			if (trackers[j].trk->IsInitialised())
@@ -132,12 +138,15 @@ void demo()
 				FloatRect r = trackers[j].trk->GetBB();
 				trackers[j].boxSeq.push_back(r);
 				boxes.push_back(r);
+				colors.push_back(trackers[j].color);
 			}
 		}
 
+		draw_traj();
 		draw_all();
 
 		bak = boxes;
+		bakColors = colors;
 		cout << "You can start adjusting the results now ..." << endl;
 
 
@@ -147,6 +156,7 @@ void demo()
 		else if (c == 'd') /* undo */
 		{
 			boxes = bak;
+			colors = bakColors;
 			draw_all();
 		}
 		else /* move on to next frame */
@@ -160,7 +170,7 @@ void demo()
 			/* - add a new box */
 			for (int j = bak.size(); j < boxes.size(); j ++)
 			{
-				init_tracker(boxes[j]);
+				init_tracker(boxes[j], colors[j]);
 			}
 			
 			/* - position adjusted or deleted */
@@ -172,7 +182,9 @@ void demo()
 					delete_tracker(j);
 					trackers.erase(trackers.begin() + j);
 					boxes.erase(boxes.begin() + j);
+					colors.erase(colors.begin() + j);
 					bak.erase(bak.begin() + j);
+					bakColors.erase(bakColors.begin() + j);
 					continue;
 				}
 
@@ -229,7 +241,7 @@ int main()
 */
 /************************************************************************/
 
-void init_tracker(FloatRect bbox)
+void init_tracker(FloatRect bbox, Scalar ccol)
 {
 	Tracker * trkPtr = new Tracker(globalConf);	
 	FloatRect initBB(bbox.XMin(), bbox.YMin(), bbox.Width(), bbox.Height());
@@ -238,6 +250,7 @@ void init_tracker(FloatRect bbox)
 	wrapper.id = staticID ++;
 	wrapper.trk = trkPtr;
 	wrapper.boxSeq.push_back(initBB);
+	wrapper.color = ccol;
 	trackers.push_back(wrapper);
 }
 
@@ -256,9 +269,28 @@ void clear_trackers()
 
 /************************************************************************/
 /* 
-							Draw rectangles
+							Drawing
 */
 /************************************************************************/
+
+void draw_traj()
+{
+	for (int i = 0; i < trackers.size(); i ++)
+	{
+		for (int j = 0; j < trackers[i].boxSeq.size()-1; j ++)
+		{
+			FloatRect r1, r2;
+			r1 = trackers[i].boxSeq[j];
+			r2 = trackers[i].boxSeq[j+1];
+			line(frame, 
+				Point(r1.XMin()+r1.Width()/2, r1.YMin()+r1.Height()/2),
+				Point(r2.XMin()+r2.Width()/2, r2.YMin()+r2.Height()/2),
+				trackers[i].color);
+				//CV_RGB(0, 255, 0));
+		}
+	}
+	//imshow(windowName, frame);
+}
 
 /* use for drawing rectangles when the results are confirmed */
 void draw_all()
@@ -270,7 +302,8 @@ void draw_all()
 		rectangle(latest, 
 				Point(bbox.XMin(), bbox.YMin()), 
 				Point(bbox.XMax(), bbox.YMax()), 
-				CV_RGB(0, 255, 0));
+				trackers[i].color);
+				//CV_RGB(0, 255, 0));
 	}
 	imshow(windowName, latest);
 }
@@ -285,14 +318,17 @@ void temp_draw_all()
 			rectangle(latest, 
 					Point(boxes[i].XMin(), boxes[i].YMin()), 
 					Point(boxes[i].XMax(), boxes[i].YMax()), 
-					CV_RGB(0, 255, 0));
+					colors[i]);
+					//CV_RGB(0, 255, 0));
 	}
-
+	cout << "Latest color is: " << colors[boxes.size()-1][0] << ","
+		<< colors[boxes.size()-1][1] << ","
+		<< colors[boxes.size()-1][2] << endl;
 	cv::imshow(windowName, latest);
 }
 
 /* use for drawing rectangles during editing, highlight the selected one */
-void draw_box(FloatRect bbox)
+void draw_box(FloatRect bbox, Scalar c)
 {
 	latest = frame.clone();
 
@@ -316,12 +352,14 @@ void draw_box(FloatRect bbox)
 		rectangle(latest, 
 			Point(bbox.XMin(), bbox.YMin()), 
 			Point(bbox.XMax(), bbox.YMax()), 
-			CV_RGB(0, 0, 255));
+			//c);
+			CV_RGB(255, 0, 0), 3);
 	else
 		rectangle(latest, 
 			Point(bbox.XMin(), bbox.YMin()), 
 			Point(bbox.XMax(), bbox.YMax()), 
-			CV_RGB(0, 255, 0));
+			c);
+			//CV_RGB(0, 255, 0));
 
 	for (int i = 0; i < boxes.size(); i ++)
 	{
@@ -329,16 +367,17 @@ void draw_box(FloatRect bbox)
 			rectangle(latest, 
 				Point(boxes[i].XMin(), boxes[i].YMin()), 
 				Point(boxes[i].XMax(), boxes[i].YMax()), 
-				CV_RGB(0, 255, 0));
+				colors[i]);
+				//CV_RGB(0, 255, 0));
 	}
 
 	cv::imshow(windowName, latest);
 }
 
-void rectangle(Mat& rMat, const FloatRect& rRect, const Scalar& rColour)
+void rectangle(Mat& rMat, const FloatRect& rRect, const Scalar& rColour, int thickness = 2)
 {
 	IntRect r(rRect);
-	rectangle(rMat, Point(r.XMin(), r.YMin()), Point(r.XMax(), r.YMax()), rColour);
+	rectangle(rMat, Point(r.XMin(), r.YMin()), Point(r.XMax(), r.YMax()), rColour, thickness);
 }
 
 
@@ -358,7 +397,7 @@ void my_mouse_callback(int event, int x, int y, int flags, void * param)
 		{
 			box.SetWidth(x - box.XMin());
 			box.SetHeight(y - box.YMin());
-			draw_box(box);
+			draw_box(box, theColor);
 		}
 		if (move_signal)
 		{
@@ -366,7 +405,7 @@ void my_mouse_callback(int event, int x, int y, int flags, void * param)
 			/*move the box*/
 			box.SetXMin(x - moveDist.x);
 			box.SetYMin(y - moveDist.y);
-			draw_box(box);
+			draw_box(box, theColor);
 		}
 		break;
 
@@ -377,6 +416,11 @@ void my_mouse_callback(int event, int x, int y, int flags, void * param)
 		box.SetYMin(y);
 		box.SetWidth(0);
 		box.SetHeight(0);
+		theColor = CV_RGB(128, rand()%255, rand()%255);
+		cout << "Generate a new color: " << theColor[0] << "," 
+										 << theColor[1] << "," 
+										 << theColor[2] << ","
+										 << endl;
 		break;
 
 	case CV_EVENT_RBUTTONUP:
@@ -396,6 +440,12 @@ void my_mouse_callback(int event, int x, int y, int flags, void * param)
 				box.SetHeight(box.Height() * -1);
 			}
 			boxes.push_back(box);
+			colors.push_back(theColor);
+			cout << "Push in the new color: " << theColor[0] << "," 
+				<< theColor[1] << "," 
+				<< theColor[2] << ","
+				<< endl;
+			cout << "Sizes of boxes and colors: " << boxes.size() << " " << colors.size() << endl;
 		}
 		clear_all_signals();
 		temp_draw_all();
@@ -419,6 +469,7 @@ void my_mouse_callback(int event, int x, int y, int flags, void * param)
 			selectedID = my_rand_int(overlapSelect.size());
 			selectedID = overlapSelect[selectedID];
 			box = boxes[selectedID];
+			theColor = colors[selectedID];
 		}
 
 		/* if click on */
@@ -431,7 +482,7 @@ void my_mouse_callback(int event, int x, int y, int flags, void * param)
 			/*compute relative distance away from box.x and box.y*/
 			moveDist = cvPoint(x - box.XMin(), y - box.YMin());
 
-			draw_box(boxes[selectedID]);
+			draw_box(boxes[selectedID], theColor);
 		}
 		//else
 		//{
@@ -446,7 +497,7 @@ void my_mouse_callback(int event, int x, int y, int flags, void * param)
 		{
 			//cout << "3. selected: " << selectedID << endl;
 			boxes[selectedID] = box;
-			draw_box(boxes[selectedID]);
+			draw_box(boxes[selectedID], colors[selectedID]);
 		}
 		else
 		{
