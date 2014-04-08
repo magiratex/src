@@ -62,14 +62,18 @@ void demo()
 	//string framesFilePath = imgPathBase + "girl_frames.txt";
 	//string outputFilePath = imgPathBase + "girl_tracks.txt";
 	//string imgFormat = imgPathBase + "imgs/img%05d.png";
-	string imgPathBase = "./sequences/crossroad/";
+	/*string imgPathBase = "./sequences/crossroad/";
 	string framesFilePath = imgPathBase + "crossroad_frames.txt";
 	string outputFilePath = imgPathBase + "crossroad_tracks.txt";
-	string imgFormat = imgPathBase + "imgs/%06d.jpg";
+	string imgFormat = imgPathBase + "imgs/%06d.jpg";*/
 	/*string imgPathBase = "./sequences/passing/";
 	string framesFilePath = imgPathBase + "passing_frames.txt";
 	string outputFilePath = imgPathBase + "passing_tracks.txt";
 	string imgFormat = imgPathBase + "imgs/%06d.jpg";*/
+	string imgPathBase = "./sequences/grand3/";
+	string framesFilePath = imgPathBase + "grand3_frames.txt";
+	string outputFilePath = imgPathBase + "grand3_tracks.txt";
+	string imgFormat = imgPathBase + "imgs/%06d.jpg";
 
 	/* Input */
 	ifstream framesFile;
