@@ -8,6 +8,8 @@
 #include "opencv/cv.h"
 #include "opencv/highgui.h"
 
+#include "trackIO.h"
+
 using namespace std;
 using namespace cv;
 
@@ -35,6 +37,7 @@ vector<FloatRect> boxes; /* store the temporary positions */
 vector<Scalar> colors; 
 int staticID = 0;
 float scale = 2.0;
+trackIO trio;
 
 void draw_all();
 void temp_draw_all();
@@ -45,9 +48,10 @@ int my_rand_int(int scale);
 void clear_all_signals();
 void init_tracker(FloatRect bbox, Scalar ccol);
 void delete_tracker(int i);
-void write_output(ofstream & ofile, int timestep);
+void write_output(string ofile, int timestep);
 void rectangle(Mat& rMat, const FloatRect& rRect, const Scalar& rColour, int thickness);
 void draw_traj();
+void draw_off_traj(int tstep);
 
 /************************************************************************/
 /* 
@@ -62,18 +66,18 @@ void demo()
 	//string framesFilePath = imgPathBase + "girl_frames.txt";
 	//string outputFilePath = imgPathBase + "girl_tracks.txt";
 	//string imgFormat = imgPathBase + "imgs/img%05d.png";
-	/*string imgPathBase = "./sequences/crossroad/";
+	string imgPathBase = "./sequences/crossroad/";
 	string framesFilePath = imgPathBase + "crossroad_frames.txt";
 	string outputFilePath = imgPathBase + "crossroad_tracks.txt";
-	string imgFormat = imgPathBase + "imgs/%06d.jpg";*/
+	string imgFormat = imgPathBase + "imgs/%06d.jpg";
 	/*string imgPathBase = "./sequences/passing/";
 	string framesFilePath = imgPathBase + "passing_frames.txt";
 	string outputFilePath = imgPathBase + "passing_tracks.txt";
 	string imgFormat = imgPathBase + "imgs/%06d.jpg";*/
-	string imgPathBase = "./sequences/grand3/";
+	/*string imgPathBase = "./sequences/grand3/";
 	string framesFilePath = imgPathBase + "grand3_frames.txt";
 	string outputFilePath = imgPathBase + "grand3_tracks.txt";
-	string imgFormat = imgPathBase + "imgs/%06d.jpg";
+	string imgFormat = imgPathBase + "imgs/%06d.jpg";*/
 
 	/* Input */
 	ifstream framesFile;
@@ -88,6 +92,17 @@ void demo()
 
 	ofstream ofile;
 	ofile.open(outputFilePath.c_str(), ios::out);
+
+	ifstream existingstr;
+	string existingdataFile(imgPathBase + "crossroad_tracks_i.txt");
+	existingstr.open(existingdataFile, ios::in);
+	if (existingstr.good()) // check if the data file exists
+	{
+		existingstr.close();
+		trio.readDataFile(existingdataFile);
+		staticID = trio.queryMaxID()+1;
+	}
+	
 
 	/* configuration */
 	string configPath = "config.txt";
@@ -147,6 +162,7 @@ void demo()
 		}
 
 		draw_traj();
+		draw_off_traj(i);
 		draw_all();
 
 		bak = boxes;
@@ -205,7 +221,7 @@ void demo()
 			}
 
 			draw_all(); 
-			write_output(ofile, i);
+			write_output(outputFilePath, i);
 			i ++;
 		}
 	}
@@ -215,21 +231,32 @@ void demo()
 	ofile.close();
 }
 
-void write_output(ofstream & ofile, int timestep)
+void write_output(string ofile, int timestep)
 {	
 	ostringstream oss;
 	for (int i = 0; i < trackers.size(); i ++)	
 	{
 		FloatRect fr = trackers[i].boxSeq.back();
-		oss << timestep << "\t"
+		/*oss << timestep << "\t"
 			<< trackers[i].id << "\t"
 			<< fr.XMin()/scale << "\t"
 			<< fr.YMin()/scale << "\t"
 			<< fr.Width()/scale << "\t"
-			<< fr.Height()/scale << "\n";
+			<< fr.Height()/scale << "\n";*/
+
+		vector<float> vdat;
+		vdat.push_back(timestep);
+		vdat.push_back(trackers[i].id);
+		vdat.push_back(fr.XMin() / scale);
+		vdat.push_back(fr.YMin() / scale);
+		vdat.push_back(fr.Width() / scale);
+		vdat.push_back(fr.Height() / scale);
+		trio.updateFrame(vdat);
 	}
-	ofile << oss.str();
-	ofile.flush();
+	trio.saveData(ofile);
+	//ofile << oss.str();
+	//ofile.flush();
+
 }
 
 int main()
@@ -276,6 +303,36 @@ void clear_trackers()
 							Drawing
 */
 /************************************************************************/
+
+void draw_off_traj(int tstep)
+{
+	vector<vector<float>> seg;
+	vector<int> agtIDs;
+
+	trio.queryFrame(tstep, seg);
+	cout << "Starting printing " <<  tstep << ": " << seg.size() << endl;
+	for (int i = 0; i < seg.size(); i ++)
+	{
+		//agtIDs.push_back(seg[i][1]);
+		vector<vector<float>> indvSeg;	
+		
+		trio.queryAgent(seg[i][1], tstep, indvSeg);
+		for (int j = 1; j < indvSeg.size(); j ++)
+		{
+			circle(frame,
+				Point((indvSeg[j][2]+indvSeg[j][4]/2)*scale, 
+				(indvSeg[j][3]+indvSeg[j][5]/2)*scale),
+				2,
+				CV_RGB(255, 255, 255));
+			line(frame, 
+				Point((indvSeg[j-1][2]+indvSeg[j][4]/2)*scale, 
+				      (indvSeg[j-1][3]+indvSeg[j][5]/2)*scale),
+				Point((indvSeg[j][2]+indvSeg[j][4]/2)*scale, 
+					  (indvSeg[j][3]+indvSeg[j][5]/2)*scale),
+				CV_RGB(255, 255, 255));
+		}
+	}
+}
 
 void draw_traj()
 {
