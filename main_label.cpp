@@ -90,8 +90,8 @@ void demo()
 	cout << startFrame << ", " << endFrame << endl;
 	framesFile.close();
 
-	ofstream ofile;
-	ofile.open(outputFilePath.c_str(), ios::out);
+	//ofstream ofile;
+	//ofile.open(outputFilePath.c_str(), ios::out);
 
 	ifstream existingstr;
 	string existingdataFile(imgPathBase + "crossroad_tracks_i.txt");
@@ -221,14 +221,14 @@ void demo()
 			}
 
 			draw_all(); 
-			write_output(outputFilePath, i);
+			write_output(existingdataFile, i);
 			i ++;
 		}
 	}
 	clear_trackers();
 
 	
-	ofile.close();
+	//ofile.close();
 }
 
 void write_output(string ofile, int timestep)
@@ -310,7 +310,7 @@ void draw_off_traj(int tstep)
 	vector<int> agtIDs;
 
 	trio.queryFrame(tstep, seg);
-	cout << "Starting printing " <<  tstep << ": " << seg.size() << endl;
+	//cout << "Starting printing " <<  tstep << ": " << seg.size() << endl;
 	for (int i = 0; i < seg.size(); i ++)
 	{
 		//agtIDs.push_back(seg[i][1]);
@@ -319,11 +319,11 @@ void draw_off_traj(int tstep)
 		trio.queryAgent(seg[i][1], tstep, indvSeg);
 		for (int j = 1; j < indvSeg.size(); j ++)
 		{
-			circle(frame,
+			/*circle(frame,
 				Point((indvSeg[j][2]+indvSeg[j][4]/2)*scale, 
 				(indvSeg[j][3]+indvSeg[j][5]/2)*scale),
 				2,
-				CV_RGB(255, 255, 255));
+				CV_RGB(255, 255, 255));*/
 			line(frame, 
 				Point((indvSeg[j-1][2]+indvSeg[j][4]/2)*scale, 
 				      (indvSeg[j-1][3]+indvSeg[j][5]/2)*scale),
@@ -382,9 +382,9 @@ void temp_draw_all()
 					colors[i]);
 					//CV_RGB(0, 255, 0));
 	}
-	cout << "Latest color is: " << colors[boxes.size()-1][0] << ","
+	/*cout << "Latest color is: " << colors[boxes.size()-1][0] << ","
 		<< colors[boxes.size()-1][1] << ","
-		<< colors[boxes.size()-1][2] << endl;
+		<< colors[boxes.size()-1][2] << endl;*/
 	cv::imshow(windowName, latest);
 }
 
@@ -478,10 +478,10 @@ void my_mouse_callback(int event, int x, int y, int flags, void * param)
 		box.SetWidth(0);
 		box.SetHeight(0);
 		theColor = CV_RGB(128, rand()%255, rand()%255);
-		cout << "Generate a new color: " << theColor[0] << "," 
+		/*cout << "Generate a new color: " << theColor[0] << "," 
 										 << theColor[1] << "," 
 										 << theColor[2] << ","
-										 << endl;
+										 << endl;*/
 		break;
 
 	case CV_EVENT_RBUTTONUP:
@@ -502,11 +502,11 @@ void my_mouse_callback(int event, int x, int y, int flags, void * param)
 			}
 			boxes.push_back(box);
 			colors.push_back(theColor);
-			cout << "Push in the new color: " << theColor[0] << "," 
+			/*cout << "Push in the new color: " << theColor[0] << "," 
 				<< theColor[1] << "," 
 				<< theColor[2] << ","
 				<< endl;
-			cout << "Sizes of boxes and colors: " << boxes.size() << " " << colors.size() << endl;
+			cout << "Sizes of boxes and colors: " << boxes.size() << " " << colors.size() << endl;*/
 		}
 		clear_all_signals();
 		temp_draw_all();
